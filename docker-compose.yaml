@@ -1,0 +1,182 @@
+
+#  author : oussama.hafsi@pwc.com
+
+version: "3.7"
+
+services:
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-oussama.hafsi@pwc.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_CONFIG_CONSOLE_LOG_LEVEL: 10
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    restart: unless-stopped
+    volumes:
+       - pgadmin:/var/lib/pgadmin
+
+  postgres:
+    image: postgres:14
+    container_name: postgres
+    user: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+    volumes:
+      - keycloak-datastore:/var/lib/postresql/data
+      - ./init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
+    environment:
+      POSTGRES_MULTIPLE_DATABASES: keycloakdb,apicuriodb,registrydb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+  keycloak:
+    image: jboss/keycloak:15.0.2
+    container_name: keycloak
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/auth/realms/master"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on: 
+      - postgres
+    ports:
+      - "8090:8080"
+    volumes:
+      - ./realms:/opt/jboss/keycloak/realm-config
+    environment:
+      KEYCLOAK_IMPORT: /opt/jboss/keycloak/realm-config/apicurio-realm.json,/opt/jboss/keycloak/realm-config/microcks-realm.json
+      DB_VENDOR: POSTGRES
+      DB_ADDR: postgres
+      DB_PORT: 5432
+      DB_DATABASE: keycloakdb
+      DB_USER: keycloakdb
+      DB_PASSWORD: keycloakdb
+      KEYCLOAK_USER: ${KEYCLOAK_USER:-admin}
+      KEYCLOAK_PASSWORD: ${KEYCLOAK_PASSWORD:-admin}
+
+  apicurio-ws:
+    image: 'apicurio/apicurio-studio-ws:${APICURIO_WS_VERSION:-0.2.51.Final}'
+    container_name: apicurio-ws
+    depends_on: [postgres, keycloak]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/favicon.ico","--output","binary"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - '8092:8080'
+    environment:
+      JAVA_TOOL_OPTIONS: '-Djava.net.preferIPv4Stack=true'
+
+      APICURIO_HUB_STORAGE_JDBC_TYPE: postgresql9
+      APICURIO_DB_DRIVER_NAME: postgresql
+      APICURIO_DB_CONNECTION_URL: jdbc:postgresql://postgres:5432/apicuriodb
+      APICURIO_DB_USER_NAME: apicuriodb
+      APICURIO_DB_PASSWORD: apicuriodb
+      APICURIO_DB_INITIALIZE: "true"
+      APICURIO_SHARE_FOR_EVERYONE: "false"
+
+  apicurio-api:
+    image: 'apicurio/apicurio-studio-api:${APICURIO_API_VERSION:-0.2.51.Final}'
+    container_name: apicurio-api
+    depends_on: [postgres, apicurio-ws,keycloak]
+    ports:
+      - '8091:8080'
+    environment:
+      JAVA_TOOL_OPTIONS: '-Djava.net.preferIPv4Stack=true'
+
+      APICURIO_KC_AUTH_URL: http://$HOST:8090/auth
+      APICURIO_KC_CLIENT_ID: apicurio-api
+      APICURIO_KC_REALM: apicurio
+
+      APICURIO_HUB_STORAGE_JDBC_TYPE: postgresql9
+      APICURIO_DB_DRIVER_NAME: postgresql
+      APICURIO_DB_CONNECTION_URL: jdbc:postgresql://postgres:5432/apicuriodb
+      APICURIO_DB_USER_NAME: apicuriodb
+      APICURIO_DB_PASSWORD: apicuriodb
+      APICURIO_DB_INITIALIZE: "true"
+
+      APICURIO_MICROCKS_API_URL: http://$HOST:8900/api
+      APICURIO_MICROCKS_CLIENT_ID: microcks-serviceaccount
+      APICURIO_MICROCKS_CLIENT_SECRET: ab54d329-e435-41ae-a900-ec6b3fe15c54
+
+  apicurio-ui:
+    image: 'apicurio/apicurio-studio-ui:${APICURIO_UI_VERSION:-0.2.51.Final}'
+    container_name: apicurio-ui
+    depends_on: [postgres, apicurio-api, apicurio-ws, keycloak]
+    ports:
+      - '8093:8080'
+    environment:
+      JAVA_TOOL_OPTIONS: '-Djava.net.preferIPv4Stack=true'
+
+      APICURIO_KC_CLIENT_ID: apicurio-studio
+      APICURIO_KC_AUTH_URL: http://$HOST:8090/auth
+      APICURIO_KC_REALM: apicurio
+
+      APICURIO_UI_HUB_API_URL: http://$HOST:8091
+      APICURIO_UI_EDITING_URL: ws://$HOST:8092
+      APICURIO_UI_FEATURE_MICROCKS: "true"
+      APICURIO_UI_FEATURE_SHARE_WITH_EVERYONE: "false"
+      APICURIO_UI_LOGOUT_REDIRECT_URI: /
+
+  mongo:
+    image: mongo:3.4.23
+    container_name: microcks-mongo
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongo mongo:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    volumes:
+      - mongo_data:/data/db
+
+  postman:
+    image: microcks/microcks-postman-runtime:latest
+    container_name: microcks-postman-runtime
+
+  microcks:
+    depends_on: [mongo, postman, keycloak]
+    image: microcks/microcks:1.4.1-fix-2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    container_name: microcks
+    ports:
+      - "8900:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATA_MONGODB_URI: mongodb://mongo:27017
+      SPRING_DATA_MONGODB_DATABASE: microcks
+      POSTMAN_RUNNER_URL: http://postman:3000
+      TEST_CALLBACK_URL: http://$HOST:8090
+      KEYCLOAK_URL: http://$HOST:8090/auth
+
+
+
+  apicurio-registry:
+    depends_on: [postgres]
+    image: apicurio/apicurio-registry-sql:2.0.2.Final
+    container_name: apicurio-registry
+    ports:
+      - 8094:8080
+    environment:
+      REGISTRY_DATASOURCE_URL: 'jdbc:postgresql://postgres:5432/registrydb'
+      REGISTRY_DATASOURCE_USERNAME: registrydb
+      REGISTRY_DATASOURCE_PASSWORD: registrydb
+
+volumes:
+  keycloak-datastore:
+  pgadmin:
+  mongo_data:
