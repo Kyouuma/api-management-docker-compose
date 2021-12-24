@@ -20,3 +20,5 @@
 
     Microcks : admin/admin
 
+    Registry : oussama.hafsi@pwc.com/admin
+
