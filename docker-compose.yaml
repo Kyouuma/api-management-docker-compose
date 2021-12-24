@@ -53,7 +53,7 @@ services:
     volumes:
       - ./realms:/opt/jboss/keycloak/realm-config
     environment:
-      KEYCLOAK_IMPORT: /opt/jboss/keycloak/realm-config/apicurio-realm.json,/opt/jboss/keycloak/realm-config/microcks-realm.json
+      KEYCLOAK_IMPORT: /opt/jboss/keycloak/realm-config/apicurio-realm.json,/opt/jboss/keycloak/realm-config/microcks-realm.json,/opt/jboss/keycloak/realm-config/registry-realm.json
       DB_VENDOR: POSTGRES
       DB_ADDR: postgres
       DB_PORT: 5432
