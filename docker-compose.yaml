@@ -45,6 +45,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 18s
     depends_on: 
       - postgres
     ports:
@@ -163,11 +164,9 @@ services:
       TEST_CALLBACK_URL: http://$HOST:8090
       KEYCLOAK_URL: http://$HOST:8090/auth
 
-
-
   apicurio-registry:
-    depends_on: [postgres]
-    image: apicurio/apicurio-registry-sql:2.0.2.Final
+    depends_on: [postgres,keycloak]
+    image: apicurio/apicurio-registry-sql:2.1.2.Final
     container_name: apicurio-registry
     ports:
       - 8094:8080
@@ -175,6 +174,15 @@ services:
       REGISTRY_DATASOURCE_URL: 'jdbc:postgresql://postgres:5432/registrydb'
       REGISTRY_DATASOURCE_USERNAME: registrydb
       REGISTRY_DATASOURCE_PASSWORD: registrydb
+      ROLE_BASED_AUTHZ_ENABLED: "true"
+      REGISTRY_AUTH_OWNER_ONLY_AUTHORIZATION: "false"
+      AUTH_ENABLED: 'true'
+      KEYCLOAK_URL: http://$HOST:8090/auth
+      KEYCLOAK_REALM: registry
+      KEYCLOAK_API_CLIENT_ID: registry-api
+      KEYCLOAK_UI_CLIENT_ID: apicurio-registry
+
+
 
 volumes:
   keycloak-datastore:
