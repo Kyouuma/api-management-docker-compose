@@ -610,9 +610,9 @@
   }, {
     "id" : "0ca69b5c-7f5b-4f16-b8ba-cdca66eca9e1",
     "clientId" : "apicurio-studio",
-    "rootUrl" : "http://10.80.243.62:8093",
+    "rootUrl" : "http://$HOST:8093",
     "adminUrl" : "",
-    "baseUrl" : "http://10.80.243.62:8093",
+    "baseUrl" : "http://$HOST:8093",
     "surrogateAuthRequired" : false,
     "enabled" : true,
     "alwaysDisplayInConsole" : false,

@@ -1,4 +1,4 @@
-# Apicurio Studio full development docker-compose setup
+# Apicurio Studio, Registry, Microcks. Full development docker-compose setup with authorization management using keycloak.
 
 
 ## Usage 
@@ -6,8 +6,7 @@
 1. find your ip and export it
 
     ` export HOST=<YOUR_EXTERNAL_IP`
-2. Change the $HOST environment variable in 
-**apicurio-realm.json** and **microcks-realm.json** in realms folder.
+2. Change the $HOST environment variable in **apicurio-realm.json** ,  **registry-realm.json** and **microcks-realm.json** in realms folder.
 
 3. Run everything 
 
@@ -21,7 +20,3 @@
 
     Microcks : admin/admin
 
-
-## Useful Links
-
-*  [microcks realm setup](https://microcks.io/blog/integrating-in-apicurio-keycloak/)
