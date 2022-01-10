@@ -12,7 +12,7 @@
 
     `docker-compose up -d`
 
-4. Credentials (username/password)
+4. Credentials (username/password) : you can change the credentials in the realms files
     
     Keycloak : admin/admin
 
